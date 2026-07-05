@@ -26,6 +26,8 @@ message = wait.until(
 
 #message = driver.find_element(By.ID, "flash")
 
+#commit
+
 assert "You logged into a secure area!" in message.text
 #assert "Joel" in message.text
 
