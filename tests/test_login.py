@@ -11,4 +11,6 @@ driver.get("https://the-internet.herokuapp.com/login")
 
 login_page = LoginPage(driver)
 
-login_page.login("tomsmith", "SuperSecretPassword!")
+dashboard = login_page.login("tomsmith", "SuperSecretPassword!")
+
+assert dashboard.is_loaded()
