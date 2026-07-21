@@ -10,13 +10,13 @@ class LoginPage(BasePage):
     LOGIN_BUTTON = (By.CLASS_NAME, "radius")
 
     def enter_username(self, username):
-        self.driver.find_element(*self.USERNAME).send_keys(username)
+        self.type(self.USERNAME, username)
 
     def enter_password(self, password):
-        self.driver.find_element(*self.PASSWORD).send_keys(password)
+        self.type(self.PASSWORD, password)
 
     def click_login(self):
-        self.driver.find_element(*self.LOGIN_BUTTON).click()
+        self.click(self.LOGIN_BUTTON)
 
     def login(self, username, password):
         self.enter_username(username)
