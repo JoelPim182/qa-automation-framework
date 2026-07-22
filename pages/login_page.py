@@ -1,6 +1,7 @@
 from selenium.webdriver.common.by import By
 from pages.dashboard_page import DashboardPage
 from pages.base_page import BasePage
+from config import config
 
 
 class LoginPage(BasePage):
@@ -24,3 +25,6 @@ class LoginPage(BasePage):
         self.click_login()
 
         return DashboardPage(self.driver)
+
+    def open(self):
+        self.driver.get(config.LOGIN_URL)
