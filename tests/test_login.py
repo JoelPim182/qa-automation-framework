@@ -9,4 +9,4 @@ def test_valid_login(driver):
 
     dashboard = login_page.login("tomsmith", "SuperSecretPassword!")
 
-    assert dashboard.is_loaded()
+    dashboard.wait_until_loaded()
