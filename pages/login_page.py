@@ -27,4 +27,4 @@ class LoginPage(BasePage):
         return DashboardPage(self.driver)
 
     def open(self):
-        self.driver.get(config.LOGIN_URL)
+        super().open(config.LOGIN_URL)

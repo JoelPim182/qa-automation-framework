@@ -1,5 +1,6 @@
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from config import config
 
 
 class BasePage:
@@ -19,6 +20,14 @@ class BasePage:
     def type(self, locator, text):
         self.find(locator).send_keys(text)
 
-    def wait_for_visible(self, locator, timeout=10):
-        WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(locator))
+    def wait(self, condition, timeout=config.DEFAULT_TIMEOUT):
+        return WebDriverWait(self.driver, timeout).until(condition)
+
+    def open(self, url):
+        self.driver.get(url)
+
+    def wait_for_visible(self, locator, timeout=config.DEFAULT_TIMEOUT):
+        return self.wait(
+            EC.visibility_of_element_located(locator),
+            timeout
+        )
