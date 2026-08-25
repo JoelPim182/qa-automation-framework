@@ -1,9 +1,10 @@
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from config import config
+from abc import ABC, abstractmethod
 
 
-class BasePage:
+class BasePage(ABC):
 
     def __init__(self, driver):
         self.driver = driver
@@ -31,3 +32,7 @@ class BasePage:
             EC.visibility_of_element_located(locator),
             timeout
         )
+
+    @abstractmethod
+    def wait_until_loaded(self):
+        pass

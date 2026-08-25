@@ -28,3 +28,7 @@ class LoginPage(BasePage):
 
     def open(self):
         super().open(config.LOGIN_URL)
+        self.wait_until_loaded()
+
+    def wait_until_loaded(self):
+        self.wait_for_visible(self.USERNAME)
