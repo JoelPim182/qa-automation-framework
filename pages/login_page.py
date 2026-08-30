@@ -1,5 +1,4 @@
 from selenium.webdriver.common.by import By
-from pages.dashboard_page import DashboardPage
 from pages.base_page import BasePage
 from config import config
 
@@ -9,6 +8,11 @@ class LoginPage(BasePage):
     USERNAME = (By.ID, "username")
     PASSWORD = (By.ID, "password")
     LOGIN_BUTTON = (By.CLASS_NAME, "radius")
+    FLASH_MESSAGE = (By.ID, "flash")
+
+    SUCCESSFUL_LOGIN_MESSAGE = "You logged into a secure area!"
+    INVALID_USERNAME_MESSAGE = "Your username is invalid!"
+    INVALID_PASSWORD_MESSAGE = "Your password is invalid!"
 
     def enter_username(self, username):
         self.type(self.USERNAME, username)
@@ -24,7 +28,25 @@ class LoginPage(BasePage):
         self.enter_password(password)
         self.click_login()
 
-        return DashboardPage(self.driver)
+        return self.wait_for_login_result()
+
+    def wait_for_login_result(self):
+        expected_messages = (
+            self.SUCCESSFUL_LOGIN_MESSAGE,
+            self.INVALID_USERNAME_MESSAGE,
+            self.INVALID_PASSWORD_MESSAGE,
+        )
+
+        def login_result(driver):
+            flash_text = driver.find_element(*self.FLASH_MESSAGE).text
+
+            for message in expected_messages:
+                if message in flash_text:
+                    return message
+
+            return False
+
+        return self.wait(login_result)
 
     def open(self):
         super().open(config.LOGIN_URL)
