@@ -19,7 +19,7 @@ class BasePage(ABC):
         self.wait(EC.element_to_be_clickable(locator)).click()
 
     def type(self, locator, text):
-        self.find(locator).send_keys(text)
+        self.wait(EC.element_to_be_clickable(locator)).send_keys(text)
 
     def wait(self, condition, timeout=config.DEFAULT_TIMEOUT):
         return WebDriverWait(self.driver, timeout).until(condition)
