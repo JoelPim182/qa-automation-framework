@@ -25,3 +25,14 @@ def test_invalid_password(driver):
     result = login_page.login("tomsmith", "invalid-password")
 
     assert result == LoginPage.INVALID_PASSWORD_MESSAGE
+
+def test_invalid_username(driver):
+
+    login_page = LoginPage(driver)
+
+    login_page.open()
+
+    result = login_page.login("invalid-username", "SuperSecretPassword!")
+
+    assert result == LoginPage.INVALID_USERNAME_MESSAGE
+
