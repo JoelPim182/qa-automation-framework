@@ -1,3 +1,4 @@
+import pytest
 from pages.login_page import LoginPage
 from pages.dashboard_page import DashboardPage
 
@@ -16,23 +17,29 @@ def test_valid_login(driver):
     dashboard.wait_until_loaded()
 
 
-def test_invalid_password(driver):
+@pytest.mark.parametrize(
+    "username, password, expected_result",
+    [
+        pytest.param(
+            "tomsmith",
+            "invalid-password",
+            LoginPage.INVALID_PASSWORD_MESSAGE,
+            id="invalid_password"
+        ),
+        pytest.param(
+            "invalid-username",
+            "SuperSecretPassword!",
+            LoginPage.INVALID_USERNAME_MESSAGE,
+            id="invalid_username"
+        )
+    ]
+)
+def test_invalid_login(driver, username, password, expected_result):
 
     login_page = LoginPage(driver)
 
     login_page.open()
 
-    result = login_page.login("tomsmith", "invalid-password")
+    result = login_page.login(username, password)
 
-    assert result == LoginPage.INVALID_PASSWORD_MESSAGE
-
-def test_invalid_username(driver):
-
-    login_page = LoginPage(driver)
-
-    login_page.open()
-
-    result = login_page.login("invalid-username", "SuperSecretPassword!")
-
-    assert result == LoginPage.INVALID_USERNAME_MESSAGE
-
+    assert result == expected_result
