@@ -1,5 +1,6 @@
 from selenium.webdriver.common.by import By
 from pages.base_page import BasePage
+from exceptions import UnexpectedLoginResult
 from config import config
 
 
@@ -31,22 +32,24 @@ class LoginPage(BasePage):
         return self.wait_for_login_result()
 
     def wait_for_login_result(self):
+        return self.wait(self.login_result)
+
+    def login_result(self, driver):
+        flash_text = driver.find_element(*self.FLASH_MESSAGE).text
+
         expected_messages = (
             self.SUCCESSFUL_LOGIN_MESSAGE,
             self.INVALID_USERNAME_MESSAGE,
             self.INVALID_PASSWORD_MESSAGE,
         )
 
-        def login_result(driver):
-            flash_text = driver.find_element(*self.FLASH_MESSAGE).text
+        for message in expected_messages:
+            if message in flash_text:
+                return message
 
-            for message in expected_messages:
-                if message in flash_text:
-                    return message
-
-            return False
-
-        return self.wait(login_result)
+        raise UnexpectedLoginResult(
+            f"Unexpected login result: {flash_text}"
+        )
 
     def open(self):
         super().open(config.LOGIN_URL)

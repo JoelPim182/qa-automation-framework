@@ -1,0 +1,2 @@
+class UnexpectedLoginResult(Exception):
+    pass
