@@ -159,7 +159,7 @@ flowchart TD
     C --> D[Clic en Login]
     D --> E[wait_for_login_result]
     E --> F["self.wait(self.login_result)"]
-    F --> G[login_result(driver): leer flash message]
+    F --> G["login_result(driver): leer flash message"]
     G --> H{¿Mensaje conocido?}
     H -->|Éxito| I[Devuelve mensaje exitoso]
     H -->|Usuario inválido| J[Devuelve mensaje de usuario inválido]
