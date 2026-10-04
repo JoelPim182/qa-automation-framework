@@ -15,7 +15,8 @@ Actualmente están implementados:
 - `BasePage` con acciones y esperas reutilizables.
 - Page Objects para Login y Dashboard.
 - Fixtures de pytest para el ciclo de vida del navegador y `LoginPage`.
-- Pruebas de login válido e inválido.
+- Excepción de dominio `UnexpectedLoginResult` para resultados de login no reconocidos.
+- Pruebas de login válido, inválido y de resultado inesperado.
 
 ## 2. Technology Stack
 
@@ -40,6 +41,7 @@ qa-automation-framework/
 ├── README.md
 ├── requirements.txt
 ├── conftest.py
+├── exceptions.py
 ├── browser/
 │   ├── __init__.py
 │   └── driver.py
@@ -59,6 +61,7 @@ qa-automation-framework/
 - `.gitignore`: excluye entorno virtual, cachés Python, caché pytest, VS Code y archivos macOS.
 - `requirements.txt`: dependencias exactas del entorno.
 - `conftest.py`: define fixtures globales de pytest.
+- `exceptions.py`: define excepciones de dominio del framework, actualmente `UnexpectedLoginResult`.
 - `browser/driver.py`: crea, maximiza y devuelve el navegador Chrome.
 - `config/config.py`: define `BASE_URL`, `LOGIN_URL` y timeout por defecto de 10 segundos.
 - `pages/base_page.py`: clase base abstracta para Page Objects.
@@ -103,7 +106,7 @@ flowchart TD
 6. La fixture `login_page` crea `LoginPage(driver)`, llama a `open()` y espera el campo de usuario.
 7. El test ejecuta `login_page.login(usuario, contraseña)`.
 8. `LoginPage` espera que cada campo y botón sea clickeable antes de interactuar.
-9. Después del clic, espera que el mensaje flash contenga uno de los tres mensajes reconocidos.
+9. Después del clic, `wait_for_login_result()` invoca `self.wait(self.login_result)`: Selenium consulta `login_result(driver)` hasta obtener un mensaje reconocido. Si obtiene un texto no reconocido, se lanza `UnexpectedLoginResult` de inmediato.
 10. El test compara el texto devuelto con el resultado esperado.
 11. Al terminar el test, pytest reanuda la fixture `driver` después de `yield` y ejecuta `driver.quit()`.
 
@@ -120,10 +123,12 @@ flowchart TD
     G --> H[Espera campo username visible]
     H --> I[Ejecuta test]
     I --> J[login: escribir y hacer clic]
-    J --> K[Espera mensaje flash reconocido]
-    K --> L[Assertion]
-    L --> M[Fin del test]
-    M --> N[driver.quit]
+    J --> K[wait_for_login_result: self.wait(login_result)]
+    K --> L{¿Resultado reconocido?}
+    L -->|Sí| M[Assertion]
+    L -->|No| X[UnexpectedLoginResult]
+    M --> N[Fin del test]
+    N --> O[driver.quit]
 ```
 
 ## 6. Login Flow
@@ -143,22 +148,23 @@ Reconoce tres resultados mediante coincidencia parcial de texto:
 | Usuario inválido | `Your username is invalid!` |
 | Contraseña inválida | `Your password is invalid!` |
 
-`login()` escribe credenciales, hace clic y devuelve el mensaje reconocido. No devuelve un `DashboardPage`; el test exitoso lo crea explícitamente después de validar el mensaje.
+`login()` escribe credenciales, hace clic y devuelve `wait_for_login_result()`. Este método delega la espera en `self.wait(self.login_result)`, de modo que la espera y la evaluación están separadas.
+
+`login_result(driver)` lee el texto de `FLASH_MESSAGE`, reconoce por coincidencia parcial los tres mensajes listados y devuelve el mensaje reconocido. Si el texto no coincide con ninguno, lanza `UnexpectedLoginResult` con el texto recibido. No devuelve un `DashboardPage`; el test exitoso lo crea explícitamente después de validar el mensaje.
 
 ```mermaid
 flowchart TD
     A[LoginPage.login] --> B[Escribir username]
     B --> C[Escribir password]
     C --> D[Clic en Login]
-    D --> E[Leer flash message]
-    E --> F{¿Mensaje conocido?}
-    F -->|Éxito| G[Devuelve mensaje exitoso]
-    F -->|Usuario inválido| H[Devuelve mensaje de usuario inválido]
-    F -->|Contraseña inválida| I[Devuelve mensaje de contraseña inválida]
-    F -->|Otro o sin mensaje reconocido| J[Sigue esperando]
-    J --> K{¿Expira timeout?}
-    K -->|Sí| L[TimeoutException de Selenium]
-    K -->|No| E
+    D --> E[wait_for_login_result]
+    E --> F[self.wait(self.login_result)]
+    F --> G[login_result(driver): leer flash message]
+    G --> H{¿Mensaje conocido?}
+    H -->|Éxito| I[Devuelve mensaje exitoso]
+    H -->|Usuario inválido| J[Devuelve mensaje de usuario inválido]
+    H -->|Contraseña inválida| K[Devuelve mensaje de contraseña inválida]
+    H -->|Otro| L[Lanza UnexpectedLoginResult]
 ```
 
 ## 7. Synchronization Strategy
@@ -179,32 +185,26 @@ Estas esperas reducen fallos por intentar interactuar con una UI todavía no vis
 
 ### Estado real de `UnexpectedLoginResult`
 
-`UnexpectedLoginResult` no existe en el repositorio actual.
+`exceptions.py` define `UnexpectedLoginResult`, una excepción de dominio para señalar que el resultado mostrado por el login no es uno de los resultados esperados por el framework.
 
-- No está definida en ningún archivo.
-- Ninguna clase la lanza.
-- No hay test que la valide.
-- Tampoco existen usos de `Mock` ni `pytest.raises`.
-
-El comportamiento actual ante un resultado de login no reconocido es distinto: la función interna `login_result()` devuelve `False`; `WebDriverWait` sigue consultando hasta expirar los 10 segundos y Selenium lanza un `TimeoutException`.
+`LoginPage.login_result(driver)` obtiene el texto de `FLASH_MESSAGE`, compara ese texto con los tres mensajes conocidos y devuelve el mensaje que reconoce. Cuando ninguno coincide, lanza `UnexpectedLoginResult` con el texto recibido. Por tanto, un resultado inesperado se informa de forma explícita y no se convierte intencionalmente en un timeout.
 
 | Situación | Comportamiento actual |
 |---|---|
-| Resultado esperado de aplicación | El flash contiene uno de los tres mensajes definidos y `wait_for_login_result()` devuelve ese mensaje. |
-| Resultado inesperado de aplicación | No coincide con ningún mensaje conocido; el predicado devuelve `False` y continúa esperando. |
-| Timeout de Selenium | Tras el timeout, Selenium lanza `TimeoutException`. Puede deberse a un resultado inesperado, ausencia del flash o un problema de carga; el framework no distingue estas causas. |
-
-Por tanto, una excepción de dominio como `UnexpectedLoginResult` sería una posible mejora futura, pero no forma parte de la implementación actual.
+| Resultado esperado de aplicación | `login_result(driver)` devuelve uno de los tres mensajes definidos; `wait_for_login_result()` lo devuelve mediante `self.wait(self.login_result)`. |
+| Resultado inesperado de aplicación | `login_result(driver)` lanza `UnexpectedLoginResult` inmediatamente. |
+| Timeout de Selenium | `WebDriverWait` puede lanzar `TimeoutException` si la condición no logra completarse dentro del timeout, por ejemplo si el flash no llega a estar disponible. Este caso es distinto de un texto de resultado no reconocido. |
 
 ## 9. Testing Strategy
 
-Los tests son UI end-to-end contra un sitio externo real. Cubren un caso positivo y dos negativos.
+Los tests son mayoritariamente UI end-to-end contra un sitio externo real y también incluyen una prueba unitaria del resultado inesperado. Cubren un caso positivo, dos negativos y la excepción de dominio.
 
 | Test | Scenario | Expected Result |
 |---|---|---|
 | `test_valid_login` | Usuario `tomsmith` y contraseña `SuperSecretPassword!` | Mensaje de login exitoso y encabezado “Secure Area” visible. |
 | `test_invalid_login[invalid_password]` | Usuario válido y contraseña inválida | Mensaje `Your password is invalid!`. |
 | `test_invalid_login[invalid_username]` | Usuario inválido y contraseña válida | Mensaje `Your username is invalid!`. |
+| `test_unexpected_login_result` | Un `Mock` del driver devuelve un flash con texto desconocido. | `login_result(driver)` lanza `UnexpectedLoginResult`. |
 
 Detalles:
 
@@ -213,9 +213,8 @@ Detalles:
 - `test_invalid_login` usa `@pytest.mark.parametrize` para compartir la misma lógica con dos combinaciones de credenciales.
 - Los casos tienen IDs legibles: `invalid_password` e `invalid_username`.
 - Las assertions comparan igualdad exacta entre el resultado retornado y las constantes de `LoginPage`.
-- No se usa `Mock`.
-- No se usa `pytest.raises`.
-- No hay prueba automatizada del resultado inesperado ni del timeout.
+- `test_unexpected_login_result` usa `unittest.mock.Mock` para simular el driver y `pytest.raises(UnexpectedLoginResult)` para validar la excepción sin abrir un navegador.
+- No hay una prueba automatizada específica para el timeout de Selenium.
 
 ## 10. Important Design Decisions
 
@@ -228,7 +227,8 @@ Detalles:
 | Gestionar driver con fixtures | `driver` usa `yield` y luego `quit()`. | Aísla tests y libera el navegador al terminar. |
 | Preparar LoginPage en fixture | `login_page` abre y espera la página antes de devolverla. | Los tests empiezan con una página de login lista. |
 | Parametrizar negativos | Un único test recibe credenciales y resultados esperados. | Evita duplicar el mismo flujo de prueba. |
-| Separar espera y evaluación del login | `wait_for_login_result()` contiene un predicado que identifica textos permitidos. | El test recibe un resultado de negocio simple: el mensaje reconocido. |
+| Separar espera y evaluación del login | `wait_for_login_result()` ejecuta `self.wait(self.login_result)` y `login_result(driver)` evalúa el texto. | Aísla la coordinación de Selenium de la regla de negocio que interpreta el resultado. |
+| Usar una excepción personalizada para resultados inesperados | `login_result(driver)` lanza `UnexpectedLoginResult` cuando el flash no coincide con los tres mensajes conocidos. | Distingue un resultado funcional desconocido de un problema técnico de sincronización o timeout. |
 
 ## 11. End-to-End Example: Valid Login
 
@@ -252,7 +252,9 @@ sequenceDiagram
     L->>B: enter_password()
     L->>B: click_login()
     L->>B: wait_for_login_result()
-    B-->>L: mensaje exitoso
+    L->>B: self.wait(self.login_result)
+    B-->>L: flash con mensaje exitoso
+    L->>L: login_result(driver) reconoce el mensaje
     L-->>P: texto de éxito
     P->>P: assertion
     P->>DB: DashboardPage(driver)
@@ -277,7 +279,6 @@ Estas son limitaciones actuales, no necesariamente errores:
 - No hay capturas automáticas de pantalla.
 - No hay logging propio del framework.
 - No hay automatización API, validación de base de datos ni gestión de datos de prueba externa.
-- No hay manejo de una excepción específica para resultados inesperados de login.
 - No hay configuración pytest dedicada (`pytest.ini`, `pyproject.toml` o `tox.ini`).
 - El entorno virtual actual no puede ejecutarse en este equipo porque su intérprete base configurado no está disponible.
 
@@ -285,10 +286,9 @@ Estas son limitaciones actuales, no necesariamente errores:
 
 | Estado | Alcance | Beneficio |
 |---|---|---|
-| CURRENT | Framework UI de login con Selenium, POM, fixtures y tres escenarios. | Base clara y pequeña para extender. |
-| IMPLEMENTED | Esperas explícitas, ciclo de vida de Chrome, LoginPage, DashboardPage y parametrización negativa. | Pruebas más legibles y menos dependientes de tiempos fijos. |
+| CURRENT | Framework UI de login con Selenium, POM, fixtures y cuatro escenarios: válido, dos inválidos y resultado inesperado. | Base clara y pequeña para extender. |
+| IMPLEMENTED | Esperas explícitas, ciclo de vida de Chrome, LoginPage, DashboardPage, parametrización negativa, separación entre espera y evaluación del resultado, y `UnexpectedLoginResult` con su prueba unitaria. | Pruebas más legibles, resultados inesperados diagnosticables y menor dependencia de tiempos fijos. |
 | NEXT | Recuperar/recrear el entorno Python y verificar la ejecución reproducible. Añadir configuración de pytest y documentar el comando de instalación. | Facilita onboarding y ejecución consistente. |
-| NEXT | Añadir pruebas para resultados inesperados y decidir si debe existir una excepción de dominio. | Distinguiría mejor fallos funcionales de timeouts técnicos. |
 | FUTURE | Configuración por ambiente y selección de navegador. | Permitirá ejecutar contra distintos entornos y navegadores. |
 | FUTURE | Evidencias de ejecución: reportes, screenshots y logging. | Mejora diagnóstico de fallos. |
 | FUTURE | CI/CD. | Ejecuta validaciones de forma automática en cambios. |
@@ -312,7 +312,7 @@ Estas son limitaciones actuales, no necesariamente errores:
 7. Para agregar un Page Object, crea una clase que herede de `BasePage`, define sus localizadores y acciones, e implementa `wait_until_loaded()` usando una señal real de disponibilidad.
 8. Mantén localizadores y acciones UI dentro de los Page Objects; evita poner Selenium directo en los tests.
 9. No agregues esperas fijas con `sleep`; usa las primitivas de espera explícita existentes.
-10. No asumas que hay reporting, CI, múltiples ambientes, mocks o excepciones de negocio: actualmente no existen.
+10. No asumas que hay reporting, CI o múltiples ambientes: actualmente no existen. Sí hay un `Mock` y una excepción de negocio para el resultado inesperado de login.
 
 ## 15. Glossary
 
@@ -322,15 +322,15 @@ Estas son limitaciones actuales, no necesariamente errores:
 - **WebDriver:** interfaz de Selenium que controla el navegador. El proyecto crea un WebDriver de Chrome.
 - **Expected Condition:** condición reutilizable de Selenium, como “elemento visible” o “clickeable”. Se usa mediante `EC`.
 - **Parametrization:** ejecución de un test con múltiples datos. `test_invalid_login` se ejecuta para contraseña inválida y usuario inválido.
-- **Mock:** objeto simulado para aislar dependencias. No se usa actualmente en el repositorio.
-- **Exception:** señal de un error o condición excepcional. No hay excepciones personalizadas; un login sin resultado reconocido termina actualmente en `TimeoutException` de Selenium.
+- **Mock:** objeto simulado para aislar dependencias. `test_unexpected_login_result` usa `unittest.mock.Mock` para simular el driver y su elemento flash.
+- **Exception:** señal de un error o condición excepcional. `UnexpectedLoginResult` es la excepción personalizada que indica un texto de resultado de login no reconocido.
 - **Assertion:** validación de una expectativa de prueba. Los tests comparan el mensaje retornado con una constante esperada.
 
 ## 16. Technical Summary
 
 La arquitectura actual es un framework UI pequeño basado en Selenium, pytest y Page Object Model. El flujo principal crea un Chrome por test, abre la página de login, ejecuta acciones sincronizadas con esperas explícitas, identifica el mensaje flash y valida el resultado.
 
-Sus componentes principales son `BasePage`, `LoginPage`, `DashboardPage`, las fixtures de pytest y el creador de WebDriver. La estrategia de testing cubre un login válido y dos fallos de autenticación parametrizados.
+Sus componentes principales son `BasePage`, `LoginPage`, `DashboardPage`, `UnexpectedLoginResult`, las fixtures de pytest y el creador de WebDriver. La estrategia de testing cubre un login válido, dos fallos de autenticación parametrizados y un resultado inesperado simulado.
 
 Las fortalezas actuales son la separación básica por responsabilidades, las esperas explícitas, la limpieza del navegador y la legibilidad de los escenarios. Los siguientes pasos recomendados son restaurar un entorno ejecutable, actualizar la documentación y extender la cobertura sin perder esta separación.
 
@@ -342,6 +342,7 @@ Las fortalezas actuales son la separación básica por responsabilidades, las es
 - `README.md`
 - `requirements.txt`
 - `conftest.py`
+- `exceptions.py`
 - `browser/__init__.py`
 - `browser/driver.py`
 - `config/__init__.py`
@@ -359,7 +360,6 @@ También se revisó la configuración del entorno virtual (`.venv/pyvenv.cfg`) y
 
 - El README indica que pytest y Page Object Model están “Coming Soon”, pero ambos ya están implementados.
 - El README menciona GitHub Actions y Allure Reports como futuros; no hay archivos que los implementen.
-- El requerimiento de documentar `UnexpectedLoginResult`, `Mock` y `pytest.raises` no coincide con el código actual: ninguno existe o se utiliza.
 - `tests/_init_.py` no usa el nombre convencional `__init__.py`.
 
 ### Aspectos no determinables con certeza
