@@ -123,7 +123,7 @@ flowchart TD
     G --> H[Espera campo username visible]
     H --> I[Ejecuta test]
     I --> J[login: escribir y hacer clic]
-    J --> K[wait_for_login_result: self.wait(login_result)]
+    J --> K["wait_for_login_result: self.wait(login_result)"]
     K --> L{¿Resultado reconocido?}
     L -->|Sí| M[Assertion]
     L -->|No| X[UnexpectedLoginResult]
@@ -355,14 +355,3 @@ Las fortalezas actuales son la separación básica por responsabilidades, las es
 - `tests/test_login.py`
 
 También se revisó la configuración del entorno virtual (`.venv/pyvenv.cfg`) y la caché de pytest como evidencia auxiliar.
-
-### Posibles inconsistencias
-
-- El README indica que pytest y Page Object Model están “Coming Soon”, pero ambos ya están implementados.
-- El README menciona GitHub Actions y Allure Reports como futuros; no hay archivos que los implementen.
-- `tests/_init_.py` no usa el nombre convencional `__init__.py`.
-
-### Aspectos no determinables con certeza
-
-- No fue posible ejecutar o colectar tests desde el entorno actual: `.venv` fue creado contra `C:\Users\itzel\AppData\Local\Programs\Python\Python314\python.exe`, instalación que no está disponible/accesible.
-- Por ello, no se puede confirmar desde esta máquina el resultado actual de la suite ni la compatibilidad efectiva de Chrome/ChromeDriver.
