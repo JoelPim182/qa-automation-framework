@@ -117,5 +117,7 @@ The framework currently uses [The Internet](https://the-internet.herokuapp.com/l
 
 ## Contributors
 
-- **Joel Pimentel Gomez** – [GitHub](https://github.com/JoelPim182)
-- **Itzel Ambrosio Garcia** – [GitHub](https://github.com/itzel-ambrosiog)
+| Contributor | GitHub |
+|---|---|
+| Joel Pimentel Gomez | [@JoelPim182](https://github.com/JoelPim182) |
+| Itzel Ambrosio Garcia | [@itzel-ambrosiog](https://github.com/itzel-ambrosiog) |
