@@ -115,8 +115,7 @@ The framework currently uses [The Internet](https://the-internet.herokuapp.com/l
 - Additional UI test scenarios.
 - API test automation.
 
-## Author
+## Contributors
 
-**Joel Pimentel Gomez**
-
-[GitHub Profile](https://github.com/JoelPim182)
+- **Joel Pimentel Gomez** – [GitHub](https://github.com/JoelPim182)
+- **Itzel Ambrosio Garcia** – [GitHub](https://github.com/itzel-ambrosiog)
